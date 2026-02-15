@@ -1,0 +1,38 @@
+name: Auto Shorts
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        required: true
+      script:
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install
+        run: |
+          sudo apt update
+          sudo apt install -y ffmpeg
+          pip install gTTS
+
+      - name: TTS
+        run: |
+          python - <<EOF
+          from gtts import gTTS
+          tts = gTTS("${{ inputs.script }}", lang="tr")
+          tts.save("voice.mp3")
+          EOF
+
+      - name: Dummy video
+        run: |
+          ffmpeg -f lavfi -i color=c=black:s=1080x1920:d=10 -i voice.mp3 \
+          -shortest -c:v libx264 -c:a aac out.mp4
+
+      - name: Done
+        run: echo "Video created"
