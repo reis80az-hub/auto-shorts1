@@ -19,7 +19,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y ffmpeg
-          pip install gTTS
+          pip install gTTS requests
 
       - name: TTS
         run: |
@@ -29,9 +29,46 @@ jobs:
           tts.save("voice.mp3")
           EOF
 
-      - name: Dummy video
+      - name: Get Pexels video
+        env:
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: |
-          ffmpeg -f lavfi -i color=c=black:s=1080x1920:d=10 -i voice.mp3 \
+          python - <<'PY'
+          import os, requests
+
+          headers = {"Authorization": os.environ["PEXELS_API_KEY"]}
+          query = "nature waterfall vertical"
+          url = f"https://api.pexels.com/videos/search?query={query}&per_page=1&orientation=portrait"
+
+          r = requests.get(url, headers=headers, timeout=60)
+          r.raise_for_status()
+          data = r.json()
+
+          if not data.get("videos"):
+            raise SystemExit("No Pexels videos. Try another query.")
+
+          v = data["videos"][0]
+          files = v.get("video_files", [])
+
+          mp4 = [f for f in files if "mp4" in (f.get("file_type") or "")]
+          mp4.sort(key=lambda x: (x.get("height") or 0))
+          pick = mp4[-1] if mp4 else files[0]
+          link = pick["link"]
+
+          with requests.get(link, stream=True, timeout=120) as rr:
+            rr.raise_for_status()
+            with open("stock.mp4", "wb") as f:
+              for chunk in rr.iter_content(chunk_size=1024*1024):
+                if chunk:
+                  f.write(chunk)
+
+          print("Downloaded stock.mp4")
+          PY
+
+      - name: Render video
+        run: |
+          ffmpeg -y -i stock.mp4 -i voice.mp3 \
+          -vf "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920" \
           -shortest -c:v libx264 -c:a aac out.mp4
 
       - name: Done
