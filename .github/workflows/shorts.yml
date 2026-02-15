@@ -19,36 +19,24 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y ffmpeg
-          pip install requests
+          pip install requests edge-tts
 
-      - name: TTS (ElevenLabs)
-        env:
-          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+      - name: TTS (Edge TTS)
         run: |
           python - <<'PY'
-          import os, json, requests
+          import asyncio
+          import edge_tts
 
-          api_key = os.environ["ELEVENLABS_API_KEY"]
-          voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "").strip() or "21m00Tcm4TlvDq8ikWAM"  # fallback: Rachel (yaygın örnek)
-          text = """${{ inputs.script }}"""
+          text = """${{ inputs.script }}""".strip()
+          # Türkçe kaliteli ses seçenekleri (deneyebileceğin 2-3 tane)
+          # "tr-TR-EmelNeural" (kadın), "tr-TR-AhmetNeural" (erkek)
+          voice = "tr-TR-EmelNeural"
 
-          url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-          headers = {
-            "xi-api-key": api_key,
-            "Content-Type": "application/json",
-            "Accept": "audio/mpeg"
-          }
-          payload = {
-            "text": text,
-            "model_id": "eleven_multilingual_v2",
-            "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}
-          }
+          async def main():
+              communicate = edge_tts.Communicate(text=text, voice=voice)
+              await communicate.save("voice.mp3")
 
-          r = requests.post(url, headers=headers, data=json.dumps(payload), timeout=120)
-          r.raise_for_status()
-          with open("voice.mp3", "wb") as f:
-            f.write(r.content)
+          asyncio.run(main())
           print("Saved voice.mp3")
           PY
 
