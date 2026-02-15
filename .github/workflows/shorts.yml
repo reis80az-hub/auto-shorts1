@@ -71,5 +71,11 @@ jobs:
           -vf "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920" \
           -shortest -c:v libx264 -c:a aac out.mp4
 
+      - name: Upload artifact (out.mp4)
+        uses: actions/upload-artifact@v4
+        with:
+          name: short
+          path: out.mp4
+
       - name: Done
         run: echo "Video created"
